@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
+import { createStyles, makeStyles } from '@material-ui/core/styles';
 
 import {
     Container,
@@ -9,9 +9,11 @@ import {
     Box,
 } from '@material-ui/core';
 
-import { DataTable } from '../../components/DataTable';
+import { EnhancedTable, RowsType } from '../../components/EnhancedTable';
 import { Select } from '../../components/Select';
 import { DropDatabase } from '../../components/DropDatabase';
+import { getAllTables, getTableData } from '../../controllers';
+import { transformMenuItems, transformTableData } from '../../transfromers';
 
 const useStyles = makeStyles(() =>
     createStyles({
@@ -30,59 +32,41 @@ const useStyles = makeStyles(() =>
     }),
 );
 
-function createData(name: string, calories: number, fat: number, carbs: number, protein: number, lol: number) {
-    return { name, calories, fat, carbs, protein, lol };
-}
-    
-const rows = [
-    createData('Frozen yoghurt',     159, 6.0,  24, 4.0, 12),
-    createData('Ice cream sandwich', 237, 9.0,  37, 4.3, 12),
-    createData('Eclair',             262, 16.0, 24, 6.0, 123),
-    createData('Cupcake',            305, 3.7,  67, 4.3, 123),
-    createData('Gingerbread',        356, 16.0, 49, 3.9, 123123),
-    createData('Ecladir',            262, 16.0, 24, 6.0, 123),
-    createData('Cupcafke',           305, 3.7,  67, 4.3, 123),
-    createData('Gingesrbread',       356, 16.0, 49, 3.9, 123123),
-];
+const emptyTable = {rowsProp: [], columns: undefined};
 
-const columns = [
-    { name: 'name',      type: 'string' },
-    { name: 'calories',  type: 'number' },
-    { name: 'fat',       type: 'number' },
-    { name: 'carbs',     type: 'number' },
-    { name: 'protein',   type: 'number' },
-    { name: 'lol',       type: 'number' },
-];
-
-const menuItems = [
-    {text: 'Frex', value: 'player'},
-    {text: 'Frul', value: 'frul'},
-    {text: 'Hobot', value: 'hobot'},
-    {text: 'Huy', value: 'huy'},
-    {text: 'Drap', value: 'trap'},
-    {text: 'Shprot', value: 'shprot'},
-    {text: 'Drap', value: 'drap'},
-];
-
-const emptyTable = {rows: undefined, columns: undefined};
-
-interface ITableData {
+type TableDataType = {
     columns?: {name: string, type: string}[],
-    rows?: {[key: string]: number | string}[],
+    rowsProp: RowsType,
 }
+
+type MenuItemsType = {
+    text: string,
+    value: string,
+}[]
 
 const SelectAll: React.FC = () => {
     const classes = useStyles();
-    const [tableType, setTableType] = React.useState('player');
-    const [tableData, setTableData] = React.useState<ITableData>(emptyTable);
+    
+    const [tableType, setTableType] = React.useState<string>('Player');
+    const [tableName, setTableName] = React.useState<string>('Player');
+    const [menuItems, setMenuItems] = React.useState<MenuItemsType>([]);
+    const [tableData, setTableData] = React.useState<TableDataType>(emptyTable);
+
+    React.useEffect(() => {
+        getAllTables().then( (res) => {
+            setMenuItems(transformMenuItems(res));
+        });
+    }, []);
 
     const handleSelectChange = (event: React.ChangeEvent<{ value: unknown }>) => {
         setTableType(event.target.value as string);
     };
 
     const requestTable = () => {
-        console.log(tableType);
-        setTableData({rows, columns});
+        getTableData(tableType).then( (res) => {
+            setTableData(transformTableData(res));
+            setTableName(tableType);
+        });
     };
 
     const clearTable = () => {
@@ -113,7 +97,7 @@ const SelectAll: React.FC = () => {
                     </Button>
                     <DropDatabase clearTable={clearTable} className={classes.dropDatabaseButton}/>
                 </Box>
-                <DataTable {...tableData} />
+                <EnhancedTable {...tableData} tableName={tableName} />
             </Container>
         </>
     );
