@@ -81,6 +81,7 @@ type EnhancedTableToolbarProps = {
         delete: (ids: number[]) => void,
         // onAdd: () => void,
         // onEdit: () => void,
+        // onSave: () => void,
     }
 }
   

@@ -11,8 +11,8 @@ import {
 
 import { EnhancedTable, RowsType } from '../../components/EnhancedTable';
 import { Select } from '../../components/Select';
-import { DropDatabase } from '../../components/DropDatabase';
-import { getAllTables, getTableData } from '../../controllers';
+import { Refresh } from '../../components/Refresh';
+import { getAllTables, getTableData, refreshDB } from '../../controllers';
 import { transformMenuItems, transformTableData } from '../../transfromers';
 
 const useStyles = makeStyles(() =>
@@ -69,7 +69,8 @@ const SelectAll: React.FC = () => {
         });
     };
 
-    const clearTable = () => {
+    const refresh = () => {
+        refreshDB();
         setTableData(emptyTable);
     }
 
@@ -95,7 +96,7 @@ const SelectAll: React.FC = () => {
                     >
                         Select
                     </Button>
-                    <DropDatabase clearTable={clearTable} className={classes.dropDatabaseButton}/>
+                    <Refresh onClick={refresh} className={classes.dropDatabaseButton}/>
                 </Box>
                 <EnhancedTable {...tableData} tableName={tableName} />
             </Container>

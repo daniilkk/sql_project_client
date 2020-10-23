@@ -53,9 +53,22 @@ const deleteRows = async (ids: number[], table: string) => {
     } 
 }
 
+export type refreshDBResponseType = {
+    'status': 'ok',
+}
+
+const refreshDB = async () => {
+    try {
+        const response = await instance.get<deleteRowsResponseType>('/refresh_db');
+        return response.data;
+    } catch (error) {
+        console.dir(error);
+    } 
+}
+
 export {
     getAllTables,
     getTableData,
     deleteRows,
-
+    refreshDB,
 }
