@@ -1,28 +1,22 @@
 import React from 'react';
-import clsx from 'clsx';
 
 import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
-import DeleteIcon from '@material-ui/icons/Delete';
-import AddIcon from '@material-ui/icons/Add';
-import EditIcon from '@material-ui/icons/Edit';
 
 import {
     Table,
     Paper,
     TableBody,
     TableContainer,
-    TableHead,
     TableRow,
     TableCell,
-    IconButton,
-    Toolbar,
-    Tooltip,
-    Typography,
-    lighten,
     Checkbox,
+    TextField,
 } from '@material-ui/core';
 
-import { deleteRows } from '../../controllers';
+import { deleteRows, updateRow, insertRow } from '../../controllers';
+
+import EnhancedTableToolbar from './toolbar';
+import EnhancedTableHead from './head';
 
 const useStyles = makeStyles((theme: Theme) =>
     createStyles({
@@ -50,166 +44,25 @@ const useStyles = makeStyles((theme: Theme) =>
     }),
 );
 
-const useToolbarStyles = makeStyles((theme: Theme) =>
-  createStyles({
-    root: {
-      paddingLeft: theme.spacing(2),
-      paddingRight: theme.spacing(1),
-    },
-    highlight:
-      theme.palette.type === 'light'
-        ? {
-            color: theme.palette.secondary.main,
-            backgroundColor: lighten(theme.palette.secondary.light, 0.85),
-          }
-        : {
-            color: theme.palette.text.primary,
-            backgroundColor: theme.palette.secondary.dark,
-          },
-    title: {
-      flex: '1 1 100%',
-    },
-  }),
-);
-
-type EnhancedTableToolbarProps = {
-    unselect: () => void,
-    numSelected: number,
-    selected: number[],
-    tableName: string,
-    tooltipsClicks: {
-        delete: (ids: number[]) => void,
-        // onAdd: () => void,
-        // onEdit: () => void,
-        // onSave: () => void,
-    }
-}
-  
-const EnhancedTableToolbar: React.FC<EnhancedTableToolbarProps> = ({
-    unselect,
-    selected,
-    tableName,
-    numSelected,
-    tooltipsClicks,
-}) => {
-    const classes = useToolbarStyles();
-  
-    return (
-        <Toolbar
-            className={clsx(classes.root, {
-                [classes.highlight]: numSelected > 0,
-            })}
-        >
-            {numSelected > 0 ? (
-                <Typography className={classes.title} color="inherit" variant="subtitle1" component="div">
-                    {numSelected} selected
-                </Typography>
-            ) : (
-                <Typography className={classes.title} variant="h6" id="tableTitle" component="div">
-                    {tableName}
-                </Typography>
-            )}
-            {numSelected > 1 ? (
-                <Tooltip
-                    title="Delete"
-                    onClick={() => {
-                        tooltipsClicks.delete(selected);
-                        unselect();
-                    }}
-                >
-                    <IconButton aria-label="delete">
-                        <DeleteIcon />
-                    </IconButton>
-                </Tooltip>
-            ) : numSelected === 1 ? (
-                <>
-                    <Tooltip title="Edit row">
-                        <IconButton aria-label="edit">
-                            <EditIcon />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete row(s)">
-                        <IconButton aria-label="delete">
-                            <DeleteIcon />
-                        </IconButton>
-                    </Tooltip>
-                </>
-            ) : (
-                <Tooltip title="Add row">
-                    <IconButton aria-label="add">
-                        <AddIcon />
-                    </IconButton>
-                </Tooltip>
-            )}
-        </Toolbar>
-        );
-};
-
-type EnhancedTableHeadProps = {
-    numSelected: number,
-    onSelectAllClick: (event: React.ChangeEvent<HTMLInputElement>) => void,
-    rowCount: number,
-    columns: {name: string, type: string}[],
-}
-  
-function EnhancedTableHead(props: EnhancedTableHeadProps) {
-    const { onSelectAllClick, numSelected, rowCount, columns } = props;
-  
-    return (
-        <TableHead>
-            <TableRow>
-                <TableCell padding="checkbox">
-                    <Checkbox
-                    indeterminate={numSelected > 0 && numSelected < rowCount}
-                    checked={rowCount > 0 && numSelected === rowCount}
-                    onChange={onSelectAllClick}
-                    inputProps={{ 'aria-label': 'select all' }}
-                    />
-                </TableCell>
-                {columns.map( (column) => (
-                    <TableCell
-                        align={column.type === 'number' ? 'right' : 'left'}
-                        key={column.name}
-                    >
-                        {column.name}
-                    </TableCell>      
-                ))}
-            </TableRow>
-        </TableHead>
-    );
-}
-
-export type RowsType = {[key: string]: string | number | null}[]
+export type RowType = {[key: string]: string | number | null}
+export type RowsType = RowType[]
 
 type EnhancedTableProps = {
     columns?: {name: string, type: string}[],
     rowsProp: RowsType,
     tableName: string,
+    requestTable: () => void,
 }
 
-const EnhancedTable: React.FC<EnhancedTableProps> = ({ rowsProp, columns, tableName }) => {
+const EnhancedTable: React.FC<EnhancedTableProps> = ({ rowsProp, columns, tableName, requestTable }) => {
     const [selected, setSelected] = React.useState<number[]>([]);
+    const [editingId, setEditingId] = React.useState<number | null>(null);
     const [rows, setRows] = React.useState<RowsType>([]);
+    const [editingData, setEditingData] = React.useState<RowType | null>(null);
 
     React.useEffect(() => {
         setRows(rowsProp);
     }, [rowsProp]);
-
-    const removeRows = (ids: number[]) => {
-        setRows(rows.filter( (row) => !ids.includes(row.id as number)));
-    };
-
-    const unselect = () => {
-        setSelected([]);
-    };
-
-    const tooltipsClicks = {
-        delete: (ids: number[]) => {
-            deleteRows(ids, tableName).then( (res) => {
-                removeRows(ids);
-            });
-        }
-    };
 
     React.useEffect((() => {
         setSelected([]);
@@ -225,6 +78,75 @@ const EnhancedTable: React.FC<EnhancedTableProps> = ({ rowsProp, columns, tableN
         setRows([]);
     }
 
+    const removeRows = (ids: number[]) => {
+        setRows(rows.filter( (row) => !ids.includes(row.id as number)));
+    };
+
+    const unselect = () => {
+        setSelected([]);
+    };
+
+    const prepareEditingData = (id: number) => {
+        let row = {...rows.find( (row) => (row.id as number) === id )} as RowType;
+        delete row['id'];
+        return row;
+    };
+
+    const prepareEditedRows = (id: number) => {
+        let row = rows.find( (row) => (row.id as number) === id ) as RowType;
+        for (const key in editingData) {
+            row[key] = editingData[key];
+        }
+        return rows;
+    };
+
+    const prepareRowsWithNewOne = () => {
+        const newRow = columns.reduce( (newRow: RowType, {name}) => {
+            newRow[name] = '';
+            return newRow;
+        }, {});
+            newRow.id = 0;
+        return [newRow, ...rows];
+    };
+
+    const tooltipsClicks = {
+        delete: (ids: number[]) => {
+            deleteRows(ids, tableName).then( () => {
+                removeRows(ids);
+            });
+        },
+        edit: (id: number) => {
+            setEditingId(id);
+            setEditingData(prepareEditingData(id));
+        },
+        save: () => {
+            updateRow(
+                tableName,
+                editingId as number,
+                editingData as RowType
+            );
+            setRows(prepareEditedRows(editingId as number));
+            setEditingId(null);
+            setEditingData(null);
+            setSelected([]);
+        }, 
+        add: () => {
+            setRows(prepareRowsWithNewOne());
+            setEditingId(0);
+        },
+        addSave: () => {
+            insertRow(
+                tableName,
+                editingData as RowType
+            ).then( () => {
+                setRows(prepareEditedRows(editingId as number));
+                requestTable();
+            })
+            setEditingId(null);
+            setEditingData(null);
+        }
+    };
+
     const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.checked) {
             const newSelecteds = rows?.map((row) => row.id as number);
@@ -236,7 +158,7 @@ const EnhancedTable: React.FC<EnhancedTableProps> = ({ rowsProp, columns, tableN
         setSelected([]);
     };
     
-    const handleClick = (event: React.MouseEvent<unknown>, id: number) => {
+    const handleClick = (id: number) => {
         const selectedIndex = selected.indexOf(id);
         let newSelected: number[] = [];
     
@@ -256,7 +178,15 @@ const EnhancedTable: React.FC<EnhancedTableProps> = ({ rowsProp, columns, tableN
         setSelected(newSelected);
     };
 
+    const handleCellChange = (event: React.ChangeEvent<HTMLInputElement>, columnName: string) => {
+        setEditingData({
+            ...editingData,
+            [columnName]: event.currentTarget.value,
+        });
+    }
+
     const isSelected = (id: number) => selected.includes(id);
+    const isEditing = (id: number) => id === editingId;
 
     return (
         <>
@@ -264,6 +194,7 @@ const EnhancedTable: React.FC<EnhancedTableProps> = ({ rowsProp, columns, tableN
                 <EnhancedTableToolbar
                     unselect={unselect}
                     selected={selected}
+                    editingId={editingId}
                     numSelected={selected.length}
                     tableName={tableName}
                     tooltipsClicks={tooltipsClicks}
@@ -278,12 +209,13 @@ const EnhancedTable: React.FC<EnhancedTableProps> = ({ rowsProp, columns, tableN
                     <TableBody>
                         {rows.map( (row, index) => {
                             const isItemSelected = isSelected(row.id as number);
+                            const isItemEditing = isEditing(row.id as number);
                             const labelId = `enhanced-table-checkbox-${index}`;
                             
                             return (
                                 <TableRow
                                     hover
-                                    onClick={(event) => handleClick(event, row.id as number)}
+                                    onClick={() => isItemEditing ? undefined : handleClick(row.id as number)}
                                     role="checkbox"
                                     aria-checked={isItemSelected}
                                     tabIndex={-1}
@@ -296,12 +228,18 @@ const EnhancedTable: React.FC<EnhancedTableProps> = ({ rowsProp, columns, tableN
                                         inputProps={{ 'aria-labelledby': labelId }}
                                         />
                                     </TableCell>
-                                    {columns.map( (column) => (
+                                    {columns.map( (column, index) => (
                                         <TableCell
-                                        align={column.type === 'number' ? 'right' : 'left'}
-                                        key={column.name}
+                                            align={column.type === 'number' ? 'right' : 'left'}
+                                            key={column.name}
                                         >
-                                            {row[column.name]}
+                                            {isItemEditing && index !== 0
+                                            ?   <TextField 
+                                                    id={column.name}
+                                                    defaultValue={row[column.name]}
+                                                    onChange={ (event) => handleCellChange(event as React.ChangeEvent<HTMLInputElement>, column.name)}
+                                                />
+                                            :   row[column.name]}
                                         </TableCell>
                                     ))}
                                 </TableRow>
